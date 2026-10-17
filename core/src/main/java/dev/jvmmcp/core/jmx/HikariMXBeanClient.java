@@ -8,6 +8,7 @@ import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -27,10 +28,21 @@ public class HikariMXBeanClient implements HikariDiagnosticPort {
     @Override
     public List<HikariPoolStatistics> getPools() throws IOException {
         try {
-            Set<ObjectName> poolNames = mbsc.queryNames(
-                new ObjectName(HIKARI_POOL_DOMAIN + ":type=Pool (*)"),
-                null
+            ObjectName legacyPattern = new ObjectName(
+                HIKARI_POOL_DOMAIN + ":type=Pool (*)"
             );
+            ObjectName standardPattern = new ObjectName(
+                HIKARI_POOL_DOMAIN + ":type=Pool,*"
+            );
+
+            Set<ObjectName> poolNames = new LinkedHashSet<>(mbsc.queryNames(
+                legacyPattern,
+                null
+            ));
+            poolNames.addAll(mbsc.queryNames(
+                standardPattern,
+                null
+            ));
 
             List<HikariPoolStatistics> pools = new ArrayList<>();
 

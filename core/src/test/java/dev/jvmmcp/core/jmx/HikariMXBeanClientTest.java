@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -20,6 +21,8 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -90,6 +93,35 @@ class HikariMXBeanClientTest {
         assertThat(pools)
             .extracting(HikariPoolStatistics::poolName)
             .contains("TestHikariPool", "SecondTestHikariPool");
+    }
+
+    @Test
+    @DisplayName("getPools discovers standard comma-separated HikariCP pool names")
+    void shouldDiscoverStandardHikariPoolNames() throws Exception {
+        ObjectName poolName = new ObjectName("com.zaxxer.hikari:type=Pool,name=StandardPool");
+        ObjectName configName = new ObjectName("com.zaxxer.hikari:type=PoolConfig,name=StandardPool");
+        when(mockMbsc.queryNames(any(), any())).thenReturn(Set.of(), Set.of(poolName));
+        when(mockMbsc.getAttribute(poolName, "ActiveConnections")).thenReturn(1);
+        when(mockMbsc.getAttribute(poolName, "IdleConnections")).thenReturn(2);
+        when(mockMbsc.getAttribute(poolName, "TotalConnections")).thenReturn(3);
+        when(mockMbsc.getAttribute(poolName, "ThreadsAwaitingConnection")).thenReturn(0);
+        when(mockMbsc.getAttribute(configName, "MaximumPoolSize")).thenReturn(5);
+
+        try (HikariMXBeanClient client = new HikariMXBeanClient(mockMbsc)) {
+            List<HikariPoolStatistics> pools = client.getPools();
+
+            assertThat(pools).hasSize(1);
+            assertThat(pools.get(0).poolName()).isEqualTo("StandardPool");
+            assertThat(pools.get(0).maximumPoolSize()).isEqualTo(5);
+        }
+
+        ArgumentCaptor<ObjectName> patternCaptor = ArgumentCaptor.forClass(ObjectName.class);
+        verify(mockMbsc, times(2)).queryNames(patternCaptor.capture(), any());
+        assertThat(patternCaptor.getAllValues())
+            .containsExactly(
+                new ObjectName("com.zaxxer.hikari:type=Pool (*)"),
+                new ObjectName("com.zaxxer.hikari:type=Pool,*")
+            );
     }
 
     @Test
