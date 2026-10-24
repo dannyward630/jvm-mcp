@@ -24,3 +24,4 @@ mvnw.cmd text eol=crlf
 *.so binary
 *.dylib binary
 *.exe binary
+/.gitignore text eol=lf diff

@@ -7,3 +7,8 @@ target/
 .DS_Store
 homebrew/
 scoop/
+# Local development and generated output
+.vscode/
+.mvn/wrapper/maven-wrapper.jar
+brag-output-*/
+scratch/
